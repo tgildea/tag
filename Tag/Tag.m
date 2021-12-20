@@ -337,7 +337,7 @@ typedef NS_ENUM(int, CommandCode) {
     NSArray* components = [arg componentsSeparatedByString:@","];
     
     // Form the unique set of tags
-    NSMutableSet* uniqueTags = [NSMutableSet new];
+    NSMutableOrderedSet* uniqueTags = [NSMutableOrderedSet new];
     for (NSString* component in components)
     {
         NSString* trimmed = [component stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
@@ -577,7 +577,6 @@ typedef NS_ENUM(int, CommandCode) {
     if (printTags)
     {
         BOOL needLineTerm = NO;
-        NSArray* sortedTags = [tagArray sortedArrayUsingSelector:@selector(compare:)];
     
         NSString* tagSeparator;
         NSString* startingSeparator;
@@ -594,7 +593,7 @@ typedef NS_ENUM(int, CommandCode) {
         }
         
         NSString* sep = startingSeparator;
-        for (NSString* tag in sortedTags)
+        for (NSString* tag in tagArray)
         {
             if (needLineTerm)
                 putc(lineTerminator, stdout);
@@ -611,23 +610,23 @@ typedef NS_ENUM(int, CommandCode) {
 }
 
 
-- (BOOL)wildcardInTagSet:(NSSet*)set
+- (BOOL)wildcardInTagSet:(NSOrderedSet*)set
 {
     TagName* wildcard = [[TagName alloc] initWithTag:@"*"];
     return [set containsObject:wildcard];
 }
 
 
-- (NSMutableSet*)tagSetFromTagArray:(NSArray*)tagArray
+- (NSMutableOrderedSet*)tagSetFromTagArray:(NSArray*)tagArray
 {
-    NSMutableSet* set = [[NSMutableSet alloc] initWithCapacity:[tagArray count]];
+    NSMutableOrderedSet* set = [[NSMutableOrderedSet alloc] initWithCapacity:[tagArray count]];
     for (NSString* tag in tagArray)
         [set addObject:[[TagName alloc] initWithTag:tag]];
     return set;
 }
 
 
-- (NSArray*)tagArrayFromTagSet:(NSSet*)tagSet
+- (NSArray*)tagArrayFromTagSet:(NSOrderedSet*)tagSet
 {
     NSMutableArray* array = [[NSMutableArray alloc] initWithCapacity:[tagSet count]];
     for (TagName* tag in tagSet)
@@ -751,8 +750,8 @@ typedef NS_ENUM(int, CommandCode) {
             [self reportFatalError:error onURL:URL];
         
         // Form the union of the existing tags + new tags.
-        NSMutableSet* tagSet = [self tagSetFromTagArray:existingTags];
-        [tagSet unionSet:self.tags];
+        NSMutableOrderedSet* tagSet = [self tagSetFromTagArray:existingTags];
+        [tagSet unionOrderedSet:self.tags];
         
         // Set all the new tags onto the item
         if (![URL setResourceValue:[self tagArrayFromTagSet:tagSet] forKey:NSURLTagNamesKey error:&error])
@@ -794,8 +793,8 @@ typedef NS_ENUM(int, CommandCode) {
         else
         {
             // Existing tags minus tags to remove
-            NSMutableSet* tagSet = [self tagSetFromTagArray:existingTags];
-            [tagSet minusSet:self.tags];
+            NSMutableOrderedSet* tagSet = [self tagSetFromTagArray:existingTags];
+            [tagSet minusOrderedSet:self.tags];
             revisedTags = [self tagArrayFromTagSet:tagSet];
         }
         
@@ -826,7 +825,7 @@ typedef NS_ENUM(int, CommandCode) {
         // tags then emit
         if (   (matchAny && tagCount > 0)
             || (matchNone && tagCount == 0)
-            || (!matchNone && [self.tags isSubsetOfSet:[self tagSetFromTagArray:tagArray]])
+            || (!matchNone && [self.tags isSubsetOfOrderedSet:[self tagSetFromTagArray:tagArray]])
             )
             [self emitURL:URL tags:tagArray];
     }];
@@ -898,7 +897,7 @@ typedef NS_ENUM(int, CommandCode) {
 }
 
 
-- (NSPredicate*)formQueryPredicateForTags:(NSSet*)tagSet
+- (NSPredicate*)formQueryPredicateForTags:(NSOrderedSet*)tagSet
 {
     BOOL matchAny = [self wildcardInTagSet:tagSet];
     BOOL matchNone = [tagSet count] == 0;
@@ -914,7 +913,7 @@ typedef NS_ENUM(int, CommandCode) {
     }
     else if ([tagSet count] == 1)
     {
-        result = [NSPredicate predicateWithFormat:@"%K ==[c] %@", kMDItemUserTags, ((TagName*)tagSet.anyObject).visibleName];
+        result = [NSPredicate predicateWithFormat:@"%K ==[c] %@", kMDItemUserTags, ((TagName*)tagSet.firstObject).visibleName];
     }
     else // if tagSet count > 0
     {
@@ -958,7 +957,7 @@ typedef NS_ENUM(int, CommandCode) {
 }
 
 
-- (NSMetadataQuery*)performMetadataSearchForTags:(NSSet*)tagSet usageMode:(BOOL)usageMode
+- (NSMetadataQuery*)performMetadataSearchForTags:(NSOrderedSet*)tagSet usageMode:(BOOL)usageMode
 {
     // Create the metadata query
     NSMetadataQuery* metadataQuery = [[NSMetadataQuery alloc] init];
